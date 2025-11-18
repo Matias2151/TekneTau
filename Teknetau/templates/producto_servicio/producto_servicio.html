@@ -211,9 +211,13 @@
             <td class="wbreak">{{ prov.emppe_nom|default:"Sin proveedor" }}</td>
             <td class="action-buttons">
 
-              {# 👁 Ver proveedor — OJO: nombres reales de campos #}
+              {# 👁 Ver proveedor y datos contables — OJO: nombres reales de campos #}
               <button class="btn-view"
-                      title="Ver Proveedor"
+                      title="Ver detalles"
+                      data-produ-neto="{{ producto.produ_neto|default_if_none:'-' }}"
+                      data-produ-iva="{{ producto.produ_iva|default_if_none:'-' }}"
+                      data-produ-bruto="{{ producto.produ_bruto|default_if_none:'-' }}"
+                      data-produ-dscto="{{ producto.produ_dscto|default_if_none:'-' }}"
                       {% if prov %}
                       data-prop-nombre="{{ prov.emppe_nom|default_if_none:'-' }}"
                       data-prop-alias="{{ prov.emppe_alias|default_if_none:'-' }}"
@@ -319,7 +323,7 @@
   <div id="modalProveedor" class="modal">
     <div class="modal-content" style="max-width:800px">
       <div class="modal-header">
-        <h3><i class="fas fa-building"></i> Detalles de Empresa / Persona</h3>
+        <h3><i class="fas fa-building"></i> Detalles de Producto y Empresa / Persona</h3> 
         <button class="close-modal" onclick="cerrarModal('modalProveedor')">&times;</button>
       </div>
 
@@ -333,6 +337,12 @@
         <p><strong>Nombre:</strong> <span id="prov-nombre" class="wbreak">-</span></p>
         <p><strong>Alias:</strong> <span id="prov-alias" class="wbreak">-</span></p>
         <p><strong>RUT:</strong> <span id="prov-rut" class="wbreak">-</span></p>
+
+        <h4>Datos contables del producto</h4>
+        <p><strong>Valor Neto:</strong> <span id="prod-neto" class="wbreak">-</span></p>
+        <p><strong>IVA:</strong> <span id="prod-iva" class="wbreak">-</span></p>
+        <p><strong>Valor Bruto:</strong> <span id="prod-bruto" class="wbreak">-</span></p>
+        <p><strong>Descuento (%):</strong> <span id="prod-dscto" class="wbreak">-</span></p>
 
         <h4>Dirección</h4>
         <p><strong>Región:</strong> <span id="prov-region" class="wbreak">-</span></p>
@@ -418,6 +428,12 @@
       return s;
     }
 
+    function fmtNumber(num){
+      const numeric = parseFloat(num);
+      if(!isFinite(numeric)) return '-';
+      return '$'+fmt.format(Math.round(numeric));
+    }
+
     // 👁 Ver proveedor
     function abrirProveedor(btn){
       const g=a=>norm(btn.getAttribute(a));
@@ -426,6 +442,13 @@
       document.getElementById('prov-rut').textContent       = g('data-prop-rut');
       document.getElementById('prov-estado').textContent    = g('data-prop-estado');
       document.getElementById('prov-situacion').textContent = g('data-prop-situacion');
+
+      const dsctoVal = norm(btn.getAttribute('data-produ-dscto'));
+
+      document.getElementById('prod-neto').textContent   = fmtNumber(g('data-produ-neto'));
+      document.getElementById('prod-iva').textContent    = fmtNumber(g('data-produ-iva'));
+      document.getElementById('prod-bruto').textContent  = fmtNumber(g('data-produ-bruto'));
+      document.getElementById('prod-dscto').textContent  = dsctoVal === '-' ? '-' : `${dsctoVal}%`;
 
       document.getElementById('prov-region').textContent    = g('data-prop-region');
       document.getElementById('prov-ciudad').textContent    = g('data-prop-ciudad');
