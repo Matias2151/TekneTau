@@ -1,0 +1,728 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestión de Facturación - TEKNETAU</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'style.css' %}">
+
+  <style>
+  .wbreak{overflow-wrap:anywhere;word-break:break-word;white-space:normal;}
+
+  /* ====== RESUMEN / STATS ====== */
+  .stats-grid.small-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+  .stats-grid.small-stats .stat-card{padding:10px 12px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;min-height:90px;}
+  .stats-grid.small-stats h3{font-size:.85rem;margin:0;}
+  .stats-grid.small-stats .stat-number{font-size:1.1rem;font-weight:700;}
+  .stats-grid.small-stats .stat-sub{font-size:.7rem;margin-top:2px;}
+  .stats-grid.small-stats .stat-icon{font-size:26px;opacity:.65;}
+  @media(max-width:980px){.stats-grid.small-stats{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:600px){.stats-grid.small-stats{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:420px){.stats-grid.small-stats{grid-template-columns:1fr;}}
+
+  /* ====== TABLA DOCUMENTOS ====== */
+  table.tabla-facturacion{width:100%;border-collapse:collapse;}
+  .tabla-facturacion thead{background:#f9fafb;}
+  .tabla-facturacion th,.tabla-facturacion td{padding:8px 10px;font-size:13px;border-bottom:1px solid #e5e7eb;text-align:left;white-space:nowrap;}
+  .tabla-facturacion th{font-weight:600;color:#4b5563;}
+  .estado-pill{padding:2px 8px;border-radius:999px;font-size:11px;display:inline-flex;align-items:center;gap:4px;}
+  .estado-pendiente{background:#fef3c7;color:#92400e;}
+  .estado-pagado{background:#d1fae5;color:#065f46;}
+  .estado-mitad{background:#e0f2fe;color:#0369a1;}
+  .estado-atrasado{background:#fee2e2;color:#b91c1c;}
+  .text-muted{color:#9ca3af;font-size:12px;}
+
+  /* ====== BASE MODALES ====== */
+  .modal{display:none;position:fixed;inset:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;z-index:9998;}
+  .modal.show{display:flex;}
+  .modal-content{background:#fff;border-radius:12px;width:92%;max-width:720px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.2);animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0);}}
+
+  /* Modal solo lectura centrado */
+  #viewCard{position:fixed;top:0;left:0;right:0;bottom:0;display:none;justify-content:center;align-items:center;background:rgba(0,0,0,.45);z-index:9999;}
+  #viewCard.show{display:flex;}
+  #viewCard .card{background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);padding:24px;width:500px;max-width:95%;max-height:80vh;overflow-y:auto;animation:fadeIn .25s ease;}
+  #viewCard h4{margin:8px 0 10px;border-bottom:1px solid #eee;padding-bottom:6px;color:#2c3e50;}
+  #viewCard p{margin:6px 0;display:flex;gap:8px;flex-wrap:wrap;}
+  #viewCard p strong{color:#555;min-width:110px;}
+
+  /* Modal confirmación eliminar */
+  #confirmDeleteModal .modal-content{max-width:400px;text-align:center;animation:fadeIn .25s ease;}
+  #confirmDeleteModal h3{margin:0;font-weight:600;color:#2c3e50;}
+  #confirmDeleteModal p{font-size:.95rem;}
+  #confirmDeleteModal .btn-danger{background-color:#e74c3c;border:none;}
+  #confirmDeleteModal .btn-danger:hover{background-color:#c0392b;}
+
+  /* Mensajes / alerts */
+  #messages{margin:15px 0;}
+  .alert{padding:10px 14px;border-radius:6px;margin-bottom:6px;font-weight:500;}
+  .alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;}
+  .alert-error,.alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}
+
+  /* Formularios modales */
+  .form-section-header{margin:10px 0 8px;display:flex;gap:8px;align-items:center;color:#2c3e50;}
+  .form-group{margin-bottom:10px;}
+  .errorlist{list-style:none;margin:4px 0 0;padding:0;}
+  .errorlist li,.error-text{color:#e74c3c;font-size:.85em;margin-top:2px;}
+  .form-control.is-invalid,.form-select.is-invalid{border-color:#e74c3c;background:#fff5f5;}
+  .alert.alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;padding:10px 12px;border-radius:6px;margin-bottom:10px;}
+
+  /* Tabla / acciones generales */
+  .action-buttons{display:flex;gap:6px;align-items:center;}
+  .action-bar{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;}
+  .search-box{display:flex;gap:6px;}
+
+  /* Responsive modales */
+  @media(max-width:768px){
+    .modal-content{width:96%;max-height:92vh;overflow-y:auto;padding:16px;}
+    #viewCard{left:12px;right:12px;bottom:12px;}
+    #viewCard p strong{min-width:100px;}
+  }
+
+  #view-proveedor-content{max-height:65vh;overflow-y:auto;padding-right:12px;}
+  #view-proveedor-content h4{color:var(--primary-color);border-bottom:2px solid #f0f0f0;padding-bottom:6px;margin:16px 0 8px;}
+  #view-proveedor-content p{margin:6px 0;line-height:1.45;}
+  #view-proveedor-content p strong{display:inline-block;width:140px;color:#555;}
+
+  /* ====== CONTENIDO MODAL FACTURACIÓN ====== */
+  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;}
+  .modal-header h3{margin:0;font-size:1.1rem;display:flex;align-items:center;gap:8px;}
+  .close-modal{background:none;border:none;font-size:22px;cursor:pointer;line-height:1;}
+
+  .nf-container{width:100%;margin:0 auto;}
+  .nf-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+  @media(max-width:900px){.nf-grid-2{grid-template-columns:1fr;}}
+  .nf-card{background:#f9fafb;border-radius:12px;padding:12px 14px;border:1px solid #e5e7eb;}
+  .nf-card h4{margin:0 0 8px;font-size:.95rem;display:flex;align-items:center;gap:6px;}
+  .nf-card label{display:block;font-size:13px;margin-bottom:4px;font-weight:500;}
+  .nf-card input,.nf-card select,.nf-card textarea{width:100%;padding:6px 8px;border-radius:6px;border:1px solid #d1d5db;font-size:13px;box-sizing:border-box;}
+
+  .nf-btn{padding:8px 14px;border-radius:999px;border:none;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:6px;}
+  .nf-btn-primary{background:#2563eb;color:#fff;}
+  .nf-btn-secondary{background:#e5e7eb;}
+  .nf-btn-ghost{background:transparent;border:1px dashed #9ca3af;color:#4b5563;}
+  .nf-btn-group{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap;}
+
+  /* ====== BOTÓN ELIMINAR (estilo compacto rojo) ====== */
+  .btn-delete {
+      background: #E74C3C !important;     /* rojo exacto */
+      color: #FFFFFF !important;          /* texto blanco */
+      border: none !important;            /* sin borde */
+      padding: 6px 10px !important;       /* tamaño compacto */
+      border-radius: 6px !important;      /* borde suave */
+      cursor: pointer;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease-in-out, transform 0.15s ease-in-out;
+      margin: 0 5px;
+  }
+
+  /* Ícono dentro del botón */
+  .btn-delete i {
+      pointer-events: none;
+      font-size: 14px;
+  }
+
+  /* Hover */
+  .btn-delete:hover {
+      background: #C0392B !important;     /* rojo más oscuro */
+      color: #FFFFFF !important;
+      transform: scale(1.05);
+  }
+
+  /* Active (click) */
+  .btn-delete:active {
+      transform: scale(0.95);
+  }
+
+
+  .step-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;}
+
+  /* Tabla detalle en el modal */
+  .nf-detalle-table{width:100%;border-collapse:collapse;margin-top:10px;}
+  .nf-detalle-table th,.nf-detalle-table td{border-bottom:1px solid #e5e7eb;padding:6px 8px;font-size:13px;}
+  .nf-detalle-table th{text-align:left;background:#eef2ff;}
+
+  .pill-total{display:inline-flex;gap:4px;align-items:center;padding:3px 8px;border-radius:999px;background:#ecfdf3;color:#166534;font-size:12px;}
+</style>
+
+</head>
+
+<body>
+
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="sidebar-logo">
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> Panel de Control</a></li>
+      <li><a href="{% url 'empresa_clientes' %}"><i class="fas fa-users"></i> Empresa / Persona</a></li>
+      <li><a href="{% url 'productoyservicioapp:lista_productos' %}"><i class="fas fa-box-open"></i> Productos / Servicios</a></li>
+      <li><a href="{% url 'proyectoapp:lista_proyectos' %}"><i class="fas fa-briefcase"></i> Proyectos</a></li>
+      <li class="active">
+        <a href="{% url 'facturacionapp:lista_documentos' %}"><i class="fas fa-file-invoice-dollar"></i> Facturación</a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- ====== CONTENIDO PRINCIPAL ====== -->
+  <main class="main-content">
+    <header class="top-header">
+      <h1>Gestión de Facturación</h1>
+      <div class="user-info"><span>User</span> <i class="fas fa-user-circle"></i></div>
+    </header>
+
+    <!-- TARJETAS RESUMEN -->
+    <div class="stats-grid small-stats">
+      <div class="stat-card info">
+        <div class="stat-content">
+          <h3>Total documentos</h3>
+          <div class="stat-number">{{ total_docs|default:0 }}</div>
+          <p class="stat-sub">Todos los documentos</p>
+        </div>
+        <i class="fas fa-layer-group stat-icon"></i>
+      </div>
+
+      <div class="stat-card warning">
+        <div class="stat-content">
+          <h3>Pendientes</h3>
+          <div class="stat-number">{{ total_pendientes|default:0 }}</div>
+          <p class="stat-sub">Sin pago completo</p>
+        </div>
+        <i class="fas fa-clock stat-icon"></i>
+      </div>
+
+      <div class="stat-card success">
+        <div class="stat-content">
+          <h3>Pagados</h3>
+          <div class="stat-number">{{ total_pagados|default:0 }}</div>
+          <p class="stat-sub">Pagados 100%</p>
+        </div>
+        <i class="fas fa-circle-check stat-icon"></i>
+      </div>
+
+      <div class="stat-card danger">
+        <div class="stat-content">
+          <h3>Atrasados</h3>
+          <div class="stat-number">{{ total_atrasados|default:0 }}</div>
+          <p class="stat-sub">Vencidos</p>
+        </div>
+        <i class="fas fa-triangle-exclamation stat-icon"></i>
+      </div>
+
+      <div class="stat-card primary">
+        <div class="stat-content">
+          <h3>Total bruto</h3>
+          <div class="stat-number">
+            ${{ monto_total_bruto|default:0|floatformat:0|intcomma }}
+          </div>
+          <p class="stat-sub">Suma bruta de todos</p>
+        </div>
+        <i class="fas fa-dollar-sign stat-icon"></i>
+      </div>
+    </div>
+
+    <!-- TABLA DOCUMENTOS -->
+    <div class="content-card">
+      <div class="action-bar">
+        <div>
+          <h2 style="margin:0;font-size:1.1rem;">Documentos de facturación</h2>
+          <small class="text-muted">
+            {% if total_docs %}
+              Mostrando {{ total_docs }} documento{% if total_docs != 1 %}s{% endif %}
+            {% else %}
+              No hay documentos registrados
+            {% endif %}
+          </small>
+        </div>
+
+        <button class="btn btn-primary" onclick="abrirModal('modalDocumento')">
+          <i class="fas fa-plus-circle"></i> Nuevo documento
+        </button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="tabla-facturacion">
+          <thead>
+            <tr>
+              <th>N° Doc</th>
+              <th>Tipo</th>
+              <th>Cliente</th>
+              <th>Proyecto</th>
+              <th>Monto bruto</th>
+              <th>Estado</th>
+              <th>Días</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in documentos %}
+              <tr>
+                <td>{{ doc.docum_num }}</td>
+                <td>{{ doc.tipo_doc.tidoc_tipo }}</td>
+                <td class="wbreak">{{ doc.empresa.EMPPE_NOM }}</td>
+                <td class="wbreak">
+                  {% if doc.proyecto %}
+                    {{ doc.proyecto.proye_desc }}
+                  {% else %}
+                    <span class="text-muted">Sin proyecto</span>
+                  {% endif %}
+                </td>
+                <td>$ {{ doc.total|floatformat:0|intcomma }}</td>
+                <td>
+                  {% if doc.docum_estado == 'PAGADO' %}
+                    <span class="estado-pill estado-pagado">Pagado</span>
+                  {% elif doc.docum_estado == 'MITAD' %}
+                    <span class="estado-pill estado-mitad">Mitad</span>
+                  {% elif doc.docum_estado == 'ATRASADO' %}
+                    <span class="estado-pill estado-atrasado">Atrasado</span>
+                  {% else %}
+                    <span class="estado-pill estado-pendiente">Pendiente</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if doc.dias_restantes < 0 %}
+                    <span class="text-muted">Vencido ({{ doc.dias_restantes }})</span>
+                  {% else %}
+                    {{ doc.dias_restantes }}
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="POST"
+                        action="{% url 'facturacionapp:eliminar_documento' doc.docum_num %}"
+                        style="display:inline"
+                        onsubmit="return confirmarEliminar(event, this)">
+                    {% csrf_token %}
+                    <button class="btn-delete" title="Eliminar">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" style="text-align:center;">
+                  <span class="text-muted">No hay documentos de facturación registrados.</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================= -->
+<!-- =============== MODAL UNICO: DOC + DETALLE ============== -->
+<!-- ========================================================= -->
+
+<div id="modalDocumento" class="modal" aria-hidden="true">
+  <div class="modal-content">
+
+    <div class="modal-header">
+      <h3>
+        <i class="fas fa-file-invoice-dollar"></i>
+        Nuevo documento
+        <span class="step-chip"><i class="fas fa-bolt"></i> Datos + Detalle</span>
+      </h3>
+      <button class="close-modal" onclick="cerrarModal('modalDocumento')">&times;</button>
+    </div>
+
+    <div class="nf-container">
+      <form method="post" action="{% url 'facturacionapp:crear_documento' %}" onsubmit="prepararDetalleJSON()">
+        {% csrf_token %}
+
+        <div class="nf-grid-2">
+
+          <!-- ====== IZQUIERDA: DATOS DOCUMENTO ====== -->
+          <div class="nf-card">
+            <h4><i class="fas fa-file-lines"></i> Datos del documento</h4>
+
+            <div style="display:grid;gap:8px;">
+              <div>
+                <label>N° documento</label>
+                {{ doc_form.docum_num }}
+              </div>
+
+              <div>
+                <label>Tipo documento</label>
+                {{ doc_form.tipo_doc }}
+              </div>
+
+              <div>
+                <label>Cliente / Empresa</label>
+                {{ doc_form.empresa }}
+              </div>
+
+              <div>
+                <label>Proyecto</label>
+                {{ doc_form.proyecto }}
+              </div>
+
+              <div>
+                <label>Tipo transacción</label>
+                <select class="form-control" name="tipo_trans">
+                  {% for t in tipos_trans %}
+                    <option value="{{ t.tipo_id }}">{{ t.tipo_trans }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label>Estado documento</label>
+                {{ doc_form.docum_estado }}
+              </div>
+
+              <div>
+                <label>Fecha emisión</label>
+                {{ doc_form.docum_fecha_emi }}
+              </div>
+
+              <div>
+                <label>Fecha vencimiento</label>
+                {{ doc_form.docum_fecha_ven }}
+              </div>
+
+              <div>
+                <label>Fecha reclamo</label>
+                {{ doc_form.docum_fecha_recl }}
+              </div>
+
+              <div>
+                <label>Observaciones</label>
+                {{ doc_form.docum_obs }}
+              </div>
+            </div>
+          </div>
+
+          <!-- ====== DERECHA: PAGO + DETALLE ====== -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+
+            <!-- FORMA DE PAGO -->
+            <div class="nf-card">
+              <h4><i class="fas fa-credit-card"></i> Forma de pago</h4>
+
+              <div class="nf-grid-2" style="grid-template-columns:1.1fr 0.9fr;">
+                <div>
+                  <label>Tipo de pago</label>
+                  <select class="form-control" name="tipo_pago">
+                    {% for tp in tipos_pago %}
+                      <option value="{{ tp.tpago_id }}">{{ tp.tpago_tipo }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Días de pago</label>
+                  <input type="number" class="form-control" name="fpago_dias" min="0" placeholder="Ej: 30">
+                </div>
+              </div>
+            </div>
+
+            <!-- DETALLE DOCUMENTO -->
+            <div class="nf-card">
+              <h4><i class="fas fa-list"></i> Detalle del documento</h4>
+
+              <!-- Controles -->
+              <div class="nf-grid-2" style="margin-bottom:8px;align-items:flex-end;">
+                <div>
+                  <label>Producto / Servicio</label>
+                  <select id="det_producto" class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    {% for p in productos %}
+                      <option value="{{ p.produ_id }}" data-precio="{{ p.produ_bruto }}">
+                        {{ p.produ_desc }} — ${{ p.produ_bruto|floatformat:0|intcomma }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Cantidad</label>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <button type="button" class="nf-btn nf-btn-ghost" onclick="cambiarCantidad(-1)">
+                      <i class="fas fa-minus"></i>
+                    </button>
+                    <input type="number" id="det_cant" class="form-control" value="1" min="1"
+                           style="max-width:80px;text-align:center;">
+                    <button type="button" class="nf-btn nf-btn-ghost" onclick="cambiarCantidad(1)">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div style="grid-column:1/3;">
+                  <label>Observación</label>
+                  <input type="text" id="det_obs" class="form-control" placeholder="Opcional: notas del producto">
+                </div>
+              </div>
+
+              <!-- Botón agregar -->
+              <div class="nf-btn-group" style="justify-content:flex-start;margin-top:4px;">
+                <button type="button" class="nf-btn nf-btn-primary" onclick="agregarProducto()">
+                  <i class="fas fa-plus"></i> Agregar al detalle
+                </button>
+              </div>
+
+              <!-- TABLA DEL DETALLE -->
+              <table class="nf-detalle-table" style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th style="width:70px;">Cant</th>
+                    <th style="width:90px;">P.U.</th>
+                    <th style="width:100px;">Total</th>
+                    <th style="width:60px;">Quitar</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaDetalle"></tbody>
+              </table>
+
+              <!-- Totales -->
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <span class="text-muted" style="font-size:11px;">
+                  Puedes agregar varios productos distintos al mismo documento.
+                </span>
+                <div>
+                  <span class="pill-total">Neto: $<span id="total_neto_span">0</span></span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#eff6ff;color:#1d4ed8;">
+                    IVA (19%): $<span id="iva_span">0</span>
+                  </span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#fef9c3;color:#854d0e;">
+                    Total: $<span id="total_span">0</span>
+                  </span>
+                </div>
+              </div>
+
+              <input type="hidden" name="detalle_json" id="input_detalle_json">
+
+            </div>
+          </div>
+        </div>
+
+        <div class="nf-btn-group" style="margin-top:14px;">
+          <button type="button" class="nf-btn nf-btn-secondary" onclick="cerrarModal('modalDocumento')">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+
+          <button type="submit" class="nf-btn nf-btn-primary">
+            <i class="fas fa-save"></i> Guardar documento + detalle
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ============= MODAL CONFIRMAR ELIMINACIÓN =============== -->
+<!-- ========================================================= -->
+
+<div id="confirmDeleteModal" class="modal" aria-hidden="true">
+  <div class="modal-content" style="max-width:400px;text-align:center;">
+
+    <h3><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i> Confirmar eliminación</h3>
+
+    <p id="deleteMessage" style="margin-top:10px;font-size:0.95rem;">
+      ¿Deseas eliminar este documento? Esta acción no se puede deshacer.
+    </p>
+
+    <div style="margin-top:18px;display:flex;justify-content:center;gap:10px;">
+      <button id="btnCancelDelete" class="nf-btn nf-btn-secondary" type="button">
+        Cancelar
+      </button>
+
+      <button id="btnConfirmDelete" class="nf-btn" style="background:#e74c3c;color:#fff;" type="button">
+        Eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- ========================================================= -->
+  <!-- ================== JAVASCRIPT ============================ -->
+  <!-- ========================================================= -->
+
+  <script>
+    function abrirModal(id){
+      const el = document.getElementById(id);
+      if (el) el.classList.add('show');
+    }
+
+    function cerrarModal(id){
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('show');
+    }
+
+    // ====== MANEJO DETALLE EN FRONT ======
+    let detalleLista = [];
+
+    function cambiarCantidad(delta){
+      const input = document.getElementById("det_cant");
+      let val = parseInt(input.value || "1", 10) + delta;
+      if (val < 1) val = 1;
+      input.value = val;
+    }
+
+    function agregarProducto(){
+      const select = document.getElementById("det_producto");
+      const cant = parseInt(document.getElementById("det_cant").value || "1", 10);
+      const obs = document.getElementById("det_obs").value.trim();
+
+      const id = select.value;
+      if (!id){
+        alert("Seleccione un producto.");
+        return;
+      }
+      const opt = select.options[select.selectedIndex];
+      const nombre = opt.text;
+      const precio = parseInt(opt.dataset.precio || "0", 10);
+
+      const total = precio * cant;
+
+      // empuja un nuevo item (permite productos distintos en el mismo doc)
+      detalleLista.push({
+        id: id,
+        nombre: nombre,
+        cant: cant,
+        precio: precio,
+        total: total,
+        obs: obs
+      });
+
+      // limpia campos
+      document.getElementById("det_cant").value = 1;
+      document.getElementById("det_obs").value = "";
+
+      renderDetalle();
+    }
+
+    function quitarItem(index){
+      detalleLista.splice(index, 1);
+      renderDetalle();
+    }
+
+    function renderDetalle(){
+      const tbody = document.getElementById("tablaDetalle");
+      tbody.innerHTML = "";
+
+      let suma = 0;
+
+      detalleLista.forEach((item, idx) => {
+        suma += item.total;
+        tbody.innerHTML += `
+          <tr>
+            <td>${item.nombre}</td>
+            <td>${item.cant}</td>
+            <td>$${item.precio.toLocaleString("es-CL")}</td>
+            <td>$${item.total.toLocaleString("es-CL")}</td>
+            <td style="text-align:center;">
+              <button type="button" class="nf-btn nf-btn-ghost" onclick="quitarItem(${idx})" style="padding:4px 8px;font-size:12px;">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      const iva = Math.round(suma * 0.19);
+      const total = suma + iva;
+
+      document.getElementById("total_neto_span").innerText = suma.toLocaleString("es-CL");
+      document.getElementById("iva_span").innerText = iva.toLocaleString("es-CL");
+      document.getElementById("total_span").innerText = total.toLocaleString("es-CL");
+    }
+
+    function prepararDetalleJSON(){
+      const hidden = document.getElementById("input_detalle_json");
+      hidden.value = JSON.stringify(detalleLista);
+    }
+
+    // Si hubo errores en el POST (validados desde la vista), reabrimos el modal
+    {% if errores %}
+      abrirModal('modalDocumento');
+    {% endif %}
+
+  function abrirDeleteModal(url) {
+    const modal = document.getElementById("confirmDeleteModal");
+    const deleteForm = document.getElementById("deleteForm");
+
+    deleteForm.action = url;   // redirige al URL correcto del documento
+    modal.classList.add("show");
+  }
+
+  function cerrarDeleteModal() {
+    document.getElementById("confirmDeleteModal").classList.remove("show");
+  }
+
+  /* ====== Modal de confirmación de eliminación (Facturación) ====== */
+  const confirmModal     = document.getElementById('confirmDeleteModal');
+  const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+  const btnCancelDelete  = document.getElementById('btnCancelDelete');
+  const deleteMessageEl  = document.getElementById('deleteMessage');
+
+  let formPendiente = null;
+
+  // Reemplaza el confirm() nativo
+  function confirmarEliminar(ev, formEl){
+    ev.preventDefault();
+    formPendiente = formEl;
+
+    // Obtener nombre del documento (si está en la tabla)
+    const tr = formEl.closest('tr');
+    const numero = tr ? tr.querySelector('td:nth-child(1)')?.textContent?.trim() : '';
+
+    deleteMessageEl.textContent = numero
+      ? `¿Deseas eliminar el documento N° ${numero}? Se eliminarán también sus detalles y transacciones.`
+      : '¿Deseas eliminar este documento? Se eliminarán también sus detalles.';
+
+    abrirModal('confirmDeleteModal');
+    return false;
+  }
+
+  btnConfirmDelete.addEventListener('click', () => {
+    if (formPendiente) {
+        const f = formPendiente;
+        formPendiente = null;
+        cerrarModal('confirmDeleteModal');
+        f.submit();
+    }
+  });
+
+  btnCancelDelete.addEventListener('click', () => {
+    formPendiente = null;
+    cerrarModal('confirmDeleteModal');
+  });
+
+  // Cerrar al hacer clic fuera
+  confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) {
+        cerrarModal('confirmDeleteModal');
+        formPendiente = null;
+    }
+  });
+
+  // Cerrar con ESC
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && confirmModal.classList.contains('show')) {
+        cerrarModal('confirmDeleteModal');
+        formPendiente = null;
+    }
+  });
+
+
+  </script>
+
+</body>
+</html>
