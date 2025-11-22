@@ -1,0 +1,221 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - TEKNETAU</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="sidebar-logo">
+        </div>
+        <ul class="sidebar-nav">
+            <li class="active">
+                <a href="{% url 'dashboard' %}">
+                    <i class="fas fa-tachometer-alt"></i> Panel de Control </a>
+            </li>
+            <li>
+                <a href="{% url 'empresa_clientes' %}">
+                    <i class="fas fa-users"></i> Empresa / Persona </a>
+            </li>
+            <li>
+                <a href="{% url 'productoyservicioapp:lista_productos' %}">
+                    <i class="fas fa-box-open"></i> Productos / Servicios </a>
+            </li>
+            <li>
+                <a href="{% url 'proyectoapp:lista_proyectos' %}">
+                    <i class="fas fa-briefcase"></i> Proyectos </a>
+            </li>
+            <li>
+                <a href="{% url 'facturacionapp:lista_documentos' %}">
+                    <i class="fas fa-file-invoice-dollar"></i> Facturación </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- ===== CONTENIDO PRINCIPAL ===== -->
+    <main class="main-content">
+        <header class="top-header">
+            <h1>Panel de Control</h1>
+            <div class="user-info">
+                <span id="username-display">{{ username }}</span>
+                <i class="fas fa-user-circle"></i>
+            </div>
+        </header>
+
+        <!-- ===== TARJETAS DE ESTADÍSTICAS (MODIFICADAS) ===== -->
+        <div class="stats-grid">
+
+            <!-- INGRESOS -->
+            <div class="stat-card success">
+                <div class="stat-content">
+                    <h3>Ingresos</h3>
+                    <div class="stat-number" id="stat-ingresos">${{ ingresos_total|intcomma }}</div>
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Según Productos / Servicios</span>
+                    </div>
+                </div>
+                <i class="fas fa-hand-holding-dollar stat-icon"></i>
+            </div>
+
+            <!-- EGRESOS -->
+            <div class="stat-card danger">
+                <div class="stat-content">
+                    <h3>Egresos</h3>
+                    <div class="stat-number" id="stat-egresos">${{ egresos_total|intcomma }}</div>
+                    <div class="stat-change negative">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>Según Productos / Servicios</span>
+                    </div>
+                </div>
+                <i class="fas fa-money-bill-transfer stat-icon"></i>
+            </div>
+
+            <!-- IVA CALCULADO -->
+            <div class="stat-card info">
+                <div class="stat-content">
+                    <h3>IVA</h3>
+                    <div class="stat-number" id="stat-iva">${{ iva_total|intcomma }}</div>
+                    <div class="stat-change positive">
+                        <i class="fas fa-percent"></i>
+                        <span>Calculado desde Productos / Servicios</span>
+                    </div>
+                </div>
+                <i class="fas fa-receipt stat-icon"></i>
+            </div>
+
+            <!-- PAGOS VENCIDOS (NO PAGADOS) -->
+            <div class="stat-card warning">
+                <div class="stat-content">
+                    <h3>Pagos Vencidos</h3>
+                    <div class="stat-number" id="stat-vencidos">{{ pagos_vencidos }}</div>
+                    <div class="stat-change negative">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>Requieren atención</span>
+                    </div>
+                </div>
+                <i class="fas fa-calendar-xmark stat-icon"></i>
+            </div>
+
+            <!-- PAGOS POR VENCER (NO PAGADOS) -->
+            <div class="stat-card info">
+                <div class="stat-content">
+                    <h3>Pagos por Vencer</h3>
+                    <div class="stat-number" id="stat-por-vencer">{{ pagos_por_vencer }}</div>
+                    <div class="stat-change positive">
+                        <i class="fas fa-clock"></i>
+                        <span>Próximos días</span>
+                    </div>
+                </div>
+                <i class="fas fa-calendar-day stat-icon"></i>
+            </div>
+
+        </div>
+
+        <!-- ===== GRÁFICOS ===== -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Proyectos por Estado</h3>
+                <canvas id="projectsChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>Ingresos Mensuales</h3>
+                <canvas id="incomeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ===== ACCIONES RÁPIDAS ===== -->
+        <div class="quick-actions">
+            <h3>Acciones Rápidas</h3>
+            <div class="actions-grid">
+                <a href="{% url 'empresa_clientes' %}" class="action-btn">
+                    <i class="fas fa-user-plus"></i>
+                    <div class="action-text">
+                        <span class="action-title">Agregar Empresa / Persona</span>
+                        <span class="action-subtitle">Registrar nuevo cliente o proveedor</span>
+                    </div>
+                </a>
+
+                <a href="{% url 'empresa_clientes' %}" class="action-btn">
+                    <i class="fas fa-folder-open"></i>
+                    <div class="action-text">
+                        <span class="action-title">Ver Empresas / Personas</span>
+                        <span class="action-subtitle">Listado completo</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- ===== ACTIVIDAD RECIENTE ===== -->
+        <div class="recent-activity">␊
+            <h3>Actividad Reciente</h3>␊
+
+            <div class="activity-item">␊
+                <div class="activity-icon success"><i class="fas fa-check"></i></div>␊
+                <div class="activity-content">␊
+                    <div class="activity-title">Resumen Financiero</div>
+                    <div class="activity-description">Ingresos, egresos e IVA calculados desde tus Productos / Servicios actuales.</div>
+                    <div class="activity-time">Actualizado hoy</div>
+                </div>␊
+            </div>␊
+␊
+            <div class="activity-item">␊
+                <div class="activity-icon info"><i class="fas fa-user"></i></div>␊
+                <div class="activity-content">␊
+                    <div class="activity-title">Proyectos</div>
+                    <div class="activity-description">Conteo por estado según los proyectos vigentes.</div>
+                    <div class="activity-time">Actualizado hoy</div>
+                </div>␊
+            </div>␊
+        </div>␊
+    </main>␊
+
+    <!-- ===== SCRIPTS ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    {{ projects_chart_data|json_script:"projects-data" }}
+    {{ income_chart_data|json_script:"income-data" }}
+
+    <script>
+        const projectsData = JSON.parse(document.getElementById('projects-data').textContent);
+        const projectsCtx = document.getElementById('projectsChart').getContext('2d');
+        new Chart(projectsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: projectsData.labels,
+                datasets: [{
+                    data: projectsData.counts,
+                    backgroundColor: ['#3498db', '#2ecc71', '#f39c12', '#e74c3c']
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        const incomeData = JSON.parse(document.getElementById('income-data').textContent);
+        const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+        new Chart(incomeCtx, {
+            type: 'line',
+            data: {
+                labels: incomeData.labels,
+                datasets: [{
+                    label: 'Ingresos ($)',
+                    data: incomeData.totals,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52,152,219,0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+    </script>
