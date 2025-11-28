@@ -1,0 +1,1636 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestión de Facturación - TEKNETAU</title>
+
+  <!-- Iconos y estilo base -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
+  <link rel="stylesheet" href="{% static 'style.css' %}"/>
+
+  <style>
+  /* =====================================
+    UTILIDADES
+  ===================================== */
+  .wbreak { overflow-wrap:anywhere; word-break:break-word; }
+  .text-muted { color:#9ca3af; font-size:12px; }
+
+  /* =====================================
+    BOTONES EXCEL / PDF
+  ===================================== */
+  .btn-excel,
+  .btn-pdf {
+      padding:8px 14px;
+      border-radius:8px;
+      border:none;
+      font-size:14px;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      color:#fff;
+      transition:background .2s, transform .15s;
+  }
+
+  .btn-excel { background:#2ecc71; }
+  .btn-excel:hover { background:#27ae60; transform:scale(1.05); }
+
+  .btn-pdf { background:#e74c3c; }
+  .btn-pdf:hover { background:#c0392b; transform:scale(1.05); }
+
+  /* =====================================
+    TARJETAS RESUMEN
+  ===================================== */
+  .stats-grid.small-stats {
+      display:grid;
+      gap:10px;
+      grid-template-columns:repeat(5,1fr);
+      margin-bottom:18px;
+  }
+
+  .stats-grid.small-stats .stat-card {
+      padding:10px 12px;
+      border-radius:10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      min-height:90px;
+  }
+
+  .stats-grid.small-stats h3 { font-size:.85rem; margin:0; }
+  .stats-grid.small-stats .stat-number { font-size:1.1rem; font-weight:700; }
+  .stats-grid.small-stats .stat-sub { font-size:.7rem; }
+  .stats-grid.small-stats .stat-icon { font-size:26px; opacity:.65; }
+
+  @media(max-width:980px){ .stats-grid.small-stats{grid-template-columns:repeat(3,1fr);} }
+  @media(max-width:600px){ .stats-grid.small-stats{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:420px){ .stats-grid.small-stats{grid-template-columns:1fr;} }
+
+  /* =====================================
+    TABLA PRINCIPAL
+  ===================================== */
+  table.tabla-facturacion { width:100%; border-collapse:collapse; }
+
+  .tabla-facturacion th,
+  .tabla-facturacion td {
+      padding:8px 10px;
+      font-size:13px;
+      border-bottom:1px solid #e5e7eb;
+      white-space:nowrap;
+  }
+
+  .tabla-facturacion thead {
+      background:#f3f4f6;
+      border-bottom:2px solid #d1d5db;
+  }
+
+  .tabla-facturacion th {
+      padding:10px 12px;
+      font-size:14px;
+      font-weight:600;
+      color:#374151;
+  }
+
+  /* Columnas */
+  .tabla-facturacion th:nth-child(1),
+  .tabla-facturacion td:nth-child(1){ width:90px; text-align:center; }
+
+  .tabla-facturacion th:nth-child(2),
+  .tabla-facturacion td:nth-child(2){ width:120px; }
+
+  .tabla-facturacion th:nth-child(3),
+  .tabla-facturacion td:nth-child(3){ width:220px; }
+
+  .tabla-facturacion th:nth-child(4),
+  .tabla-facturacion td:nth-child(4){ width:230px; }
+
+  .tabla-facturacion th:nth-child(5),
+  .tabla-facturacion td:nth-child(5){ width:140px; text-align:right; }
+
+  .tabla-facturacion th:nth-child(6),
+  .tabla-facturacion td:nth-child(6){ width:120px; text-align:center; }
+
+  .tabla-facturacion th:nth-child(7),
+  .tabla-facturacion td:nth-child(7){ width:140px; text-align:center; }
+
+  .tabla-facturacion th:nth-child(8),
+  .tabla-facturacion td:nth-child(8){ width:110px; text-align:center; }
+
+  /* =====================================
+    ESTADOS
+  ===================================== */
+  .estado-pill {
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+  }
+
+  .estado-pendiente { background:#fef3c7; color:#92400e; }
+  .estado-pagado    { background:#d1fae5; color:#065f46; }
+  .estado-mitad     { background:#e0f2fe; color:#0369a1; }
+  .estado-atrasado  { background:#fee2e2; color:#b91c1c; }
+
+  /* =====================================
+    CARD GENERAL
+  ===================================== */
+  .content-card {
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      padding:18px 20px;
+      margin-bottom:18px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  /* =====================================
+    MODALES BASE
+  ===================================== */
+  .modal {
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.5);
+      justify-content:center;
+      align-items:center;
+      z-index:9998;
+  }
+
+  .modal.show { display:flex; }
+
+  .modal-content {
+      background:#fff;
+      border-radius:12px;
+      width:92%;
+      max-width:720px;
+      padding:20px;
+      animation:fadeIn .25s ease;
+  }
+
+  @keyframes fadeIn {
+      from { opacity:0; transform:translateY(-10px); }
+      to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* =====================================
+    MODAL VER DOCUMENTO
+  ===================================== */
+  #modalVerDocumento .modal-content {
+      border-radius:14px;
+      max-width:760px;
+      padding:26px 30px;
+      box-shadow:0 12px 36px rgba(0,0,0,.28);
+      font-size:15px;
+  }
+
+  #modalVerDocumento .modal-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding-bottom:10px;
+      border-bottom:1px solid #d1d5db;
+  }
+
+  /* Tarjetas internas del modal ver */
+  #modalVerDocumento .nf-card {
+      background:#fafafa;
+      border:1px solid #e5e7eb;
+      padding:18px 20px;
+      margin-bottom:16px;
+      border-radius:14px;
+  }
+
+  #modalVerDocumento .nf-card h4 {
+      margin:0 0 14px;
+      color:#374151;
+      font-size:1.05rem;
+      font-weight:600;
+  }
+
+  /* GRID datos ver */
+  #modalVerDocumento .view-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px 18px;
+      font-size:14px;
+  }
+
+  #modalVerDocumento .view-grid strong { min-width:130px; }
+
+  /* TABLA detalle en modal VER */
+  #modalVerDocumento .nf-detalle-table {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:12px;
+      font-size:14px;
+  }
+
+  #modalVerDocumento .nf-detalle-table th {
+      background:#f3f4f6;
+      border-bottom:2px solid #e5e7eb;
+      padding:10px 12px;
+      font-weight:600;
+  }
+
+  #modalVerDocumento .nf-detalle-table td {
+      padding:10px 12px;
+      border-bottom:1px solid #e5e7eb;
+  }
+
+  /* Alineación columnas */
+  #modalVerDocumento .nf-detalle-table th:nth-child(2),
+  #modalVerDocumento .nf-detalle-table td:nth-child(2){
+      text-align:center;
+  }
+
+  #modalVerDocumento .nf-detalle-table th:nth-child(3),
+  #modalVerDocumento .nf-detalle-table td:nth-child(3),
+  #modalVerDocumento .nf-detalle-table th:nth-child(4),
+  #modalVerDocumento .nf-detalle-table td:nth-child(4){
+      text-align:right;
+  }
+
+  /* TOTALES */
+  #modalVerDocumento .totales-box {
+      margin-top:18px;
+      display:flex;
+      justify-content:flex-end;
+      gap:12px;
+  }
+
+  #modalVerDocumento .pill {
+      padding:6px 14px;
+      border-radius:10px;
+      font-size:14px;
+      font-weight:600;
+  }
+
+  #modalVerDocumento .pill-neto  { background:#e5e7eb; color:#374151; }
+  #modalVerDocumento .pill-iva   { background:#fef3c7; color:#92400e; }
+  #modalVerDocumento .pill-total { background:#dcfce7; color:#166534; }
+
+  /* =====================================
+    FORMULARIOS DE AGREGAR / EDITAR
+  ===================================== */
+
+  /* nf-card — tarjeta contenedora */
+  .nf-card {
+      background:#fafafa;
+      border:1px solid #e5e7eb;
+      padding:18px 20px;
+      border-radius:14px;
+  }
+
+  .nf-card h4 {
+      margin:0 0 14px;
+      color:#374151;
+      font-size:1.05rem;
+      font-weight:600;
+  }
+
+  /* Grid del modal */
+  .nf-grid-2 {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+  }
+
+  @media(max-width:900px){
+      .nf-grid-2 { grid-template-columns:1fr; }
+  }
+
+  /* Inputs del modal */
+  .nf-card input,
+  .nf-card select,
+  .nf-card textarea {
+      width:100%;
+      padding:8px 10px;
+      font-size:14px;
+      border-radius:6px;
+      border:1px solid #d1d5db;
+      background:white;
+  }
+
+  /* TABLA detalle del modal (crear/editar) */
+  .nf-detalle-table {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:8px;
+  }
+
+  .nf-detalle-table th {
+      background:#eef2ff;
+      border-bottom:2px solid #d1d5db;
+      padding:10px;
+      font-weight:600;
+      color:#374151;
+  }
+
+  .nf-detalle-table td {
+      border-bottom:1px solid #e5e7eb;
+      padding:8px 10px;
+  }
+
+  .nf-detalle-table td:nth-child(2){ text-align:center; width:70px; }
+  .nf-detalle-table td:nth-child(3){ text-align:right; width:110px; }
+  .nf-detalle-table td:nth-child(4){ text-align:right; width:120px; }
+  .nf-detalle-table td:nth-child(5){ text-align:center; width:60px; }
+
+  /* Botón pill (totales) */
+  .pill-total {
+      display:inline-flex;
+      gap:4px;
+      align-items:center;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+      background:#ecfdf3;
+      color:#166534;
+  }
+
+  /* Botones generales */
+  .nf-btn {
+      padding:8px 14px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      font-size:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+  }
+
+  .nf-btn-primary { background:#2563eb; color:#fff; }
+  .nf-btn-secondary { background:#e5e7eb; }
+  .nf-btn-ghost {
+      background:transparent;
+      border:1px dashed #9ca3af;
+      color:#4b5563;
+  }
+
+  .nf-btn-ghost:hover { background:#f3f4f6; }
+
+  .nf-btn-group {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+  }
+
+  /* =====================================
+    ACCIONES VER / EDITAR / ELIMINAR
+  ===================================== */
+  .action-buttons {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:6px;
+  }
+
+  .action-buttons form { margin:0; padding:0; }
+  </style>
+</head>
+
+<body>
+
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="sidebar-logo">
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> Panel de Control</a></li>
+      <li><a href="{% url 'empresa_clientes' %}"><i class="fas fa-users"></i> Empresa / Persona</a></li>
+      <li><a href="{% url 'productoyservicioapp:lista_productos' %}"><i class="fas fa-box-open"></i> Productos / Servicios</a></li>
+      <li><a href="{% url 'proyectoapp:lista_proyectos' %}"><i class="fas fa-briefcase"></i> Proyectos</a></li>
+      <li class="active">
+        <a href="{% url 'facturacionapp:lista_documentos' %}"><i class="fas fa-file-invoice-dollar"></i> Facturación</a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- ====== CONTENIDO PRINCIPAL ====== -->
+  <main class="main-content">
+    <header class="top-header">
+      <h1>Gestión de Facturación</h1>
+      <div class="user-info"><span>User</span> <i class="fas fa-user-circle"></i></div>
+    </header>
+
+    <!-- TARJETAS RESUMEN -->
+    <div class="stats-grid small-stats">
+      <div class="stat-card info">
+        <div class="stat-content">
+          <h3>Total documentos</h3>
+          <div class="stat-number">{{ total_docs|default:0 }}</div>
+          <p class="stat-sub">Todos los documentos</p>
+        </div>
+        <i class="fas fa-layer-group stat-icon"></i>
+      </div>
+
+      <div class="stat-card warning">
+        <div class="stat-content">
+          <h3>Pendientes</h3>
+          <div class="stat-number">{{ total_pendientes|default:0 }}</div>
+          <p class="stat-sub">Sin pago completo</p>
+        </div>
+        <i class="fas fa-clock stat-icon"></i>
+      </div>
+
+      <div class="stat-card success">
+        <div class="stat-content">
+          <h3>Pagados</h3>
+          <div class="stat-number">{{ total_pagados|default:0 }}</div>
+          <p class="stat-sub">Pagados 100%</p>
+        </div>
+        <i class="fas fa-circle-check stat-icon"></i>
+      </div>
+
+      <div class="stat-card danger">
+        <div class="stat-content">
+          <h3>Atrasados</h3>
+          <div class="stat-number">{{ total_atrasados|default:0 }}</div>
+          <p class="stat-sub">Vencidos</p>
+        </div>
+        <i class="fas fa-triangle-exclamation stat-icon"></i>
+      </div>
+
+      <div class="stat-card primary">
+        <div class="stat-content">
+          <h3>Total bruto</h3>
+          <div class="stat-number">
+            ${{ monto_total_bruto|default:0|floatformat:0|intcomma }}
+          </div>
+          <p class="stat-sub">Suma bruta de todos</p>
+        </div>
+        <i class="fas fa-dollar-sign stat-icon"></i>
+      </div>
+    </div>
+
+    <!-- CARD ÚNICO: TÍTULO + BOTONES + TABLA -->
+    <div class="content-card">
+
+        <!-- TÍTULO -->
+        <h2 style="margin:0; font-size:1.1rem;">Documentos de facturación</h2>
+
+        <!-- FILA PRINCIPAL (nuevo + exportar) -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 18px 0;">
+
+            <!-- IZQUIERDA: botón para abrir modal de nuevo documento -->
+            <button class="btn btn-primary" onclick="abrirModal('modalDocumento')">
+                <i class="fas fa-plus-circle"></i> Nuevo documento
+            </button>
+
+            <!-- DERECHA: exportaciones -->
+            <div style="display:flex; gap:10px;">
+                <a class="btn-excel" href="{% url 'facturacionapp:export_excel_all' %}">
+                    <i class="fas fa-file-excel"></i> Excel
+                </a>
+                <a class="btn-pdf" href="{% url 'facturacionapp:export_pdf_all' %}">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </a>
+            </div>
+
+        </div>
+
+        <!-- TABLA (DENTRO DEL MISMO CARD) -->
+        <table class="tabla-facturacion" id="facturacionTable">
+            <thead>
+                <tr>
+                  <th>N° Doc</th>
+                  <th>Tipo</th>
+                  <th>Cliente</th>
+                  <th>Proyecto</th>
+                  <th>Monto bruto</th>
+                  <th>Estado</th>
+                  <th>Días</th>
+                  <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documentos %}
+                  <tr>
+                    <td>{{ doc.docum_num }}</td>
+                    <td>{{ doc.tipo_doc.tidoc_tipo }}</td>
+
+                    <td class="wbreak">{{ doc.empresa.emppe_nom }}</td>
+
+                    <td class="wbreak">
+                      {% if doc.proyecto %}
+                          {{ doc.proyecto.proye_desc }}
+                      {% else %}
+                          <span class="text-muted">Sin proyecto</span>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      {% if doc.es_ingreso %}
+                          <span style="color:green;font-weight:700;">
+                            <i class="fas fa-arrow-up"></i>
+                            ${{ doc.total|floatformat:0|intcomma }}
+                          </span>
+                      {% elif doc.es_egreso %}
+                          <span style="color:#c0392b;font-weight:700;">
+                            <i class="fas fa-arrow-down"></i>
+                            ${{ doc.total|floatformat:0|intcomma }}
+                          </span>
+                      {% else %}
+                          <span class="text-muted">Sin transacción</span>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      {% if doc.docum_estado == 'PAGADO' %}
+                        <span class="estado-pill estado-pagado">
+                          <i class="fas fa-circle-check"></i> Pagado
+                        </span>
+                      {% elif doc.docum_estado == 'MITAD' %}
+                        <span class="estado-pill estado-mitad">
+                          <i class="fas fa-adjust"></i> Mitad
+                        </span>
+                      {% elif doc.docum_estado == 'ATRASADO' %}
+                        <span class="estado-pill estado-atrasado">
+                          <i class="fas fa-exclamation-triangle"></i> Atrasado
+                        </span>
+                      {% else %}
+                        <span class="estado-pill estado-pendiente">
+                          <i class="fas fa-clock"></i> Pendiente
+                        </span>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      {% if doc.estado_real == 'PAGADO' %}
+                          <span class="text-muted">Pagado</span>
+                      {% elif doc.dias_para_vencer is None %}
+                          <span class="text-muted">Sin fecha</span>
+                      {% elif doc.esta_vencido %}
+                          <span style="color:#c0392b;font-weight:600;">
+                            Vencido ({{ doc.dias_atrasados }} días)
+                          </span>
+                      {% elif doc.dias_para_vencer == 0 %}
+                          <span style="color:#b45309;font-weight:600;">Vence hoy</span>
+                      {% else %}
+                          <span style="color:#065f46;font-weight:600;">
+                            {{ doc.dias_para_vencer }} días
+                          </span>
+                      {% endif %}
+                    </td>
+
+                    <td class="action-buttons">
+
+                        <!-- VER -->
+                        <button type="button"
+                                class="btn-view"
+                                title="Ver Detalles"
+                                onclick="abrirModalVer({{ doc.docum_num }})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+
+                        <!-- EDITAR -->
+                        <button type="button"
+                                class="btn-edit"
+                                title="Editar"
+                                onclick="abrirModalEditar({{ doc.docum_num }})">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+
+                        <!-- ELIMINAR -->
+                        <form method="post"
+                              action="{% url 'facturacionapp:eliminar_documento' doc.docum_num %}"
+                              class="delete-form"
+                              onsubmit="return confirmarEliminar(event, this)">
+                            {% csrf_token %}
+                            <button class="btn-delete" title="Eliminar">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="8" style="text-align:center;">
+                      <span class="text-muted">No hay documentos de facturación registrados.</span>
+                    </td>
+                  </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    </div>
+  </main>
+
+<!-- ========================================================= -->
+<!-- =============== MODAL UNICO: DOC + DETALLE ============== -->
+<!-- ========================================================= -->
+
+<div id="modalDocumento" class="modal" aria-hidden="true">
+  <div class="modal-content">
+
+    <div class="modal-header">
+      <h3>
+        <i class="fas fa-file-invoice-dollar"></i>
+        Nuevo documento
+        <span class="step-chip"><i class="fas fa-bolt"></i> Datos + Detalle</span>
+      </h3>
+      <button class="close-modal" onclick="cerrarModal('modalDocumento')">&times;</button>
+    </div>
+
+    <div class="nf-container">
+      <form method="post" action="{% url 'facturacionapp:crear_documento' %}" onsubmit="prepararDetalleJSON()">
+        {% csrf_token %}
+    
+        {# ============================================================ #}
+        {#  BLOQUE PARA MOSTRAR ERRORES DEL FORMULARIO (cabecera)      #}
+        {#  Incluye errores de validador del form y errores externos   #}
+        {#  agregados en la vista con form.add_error(None, "...")      #}
+        {# ============================================================ #}
+        {% if doc_form.errors or doc_form.non_field_errors %}
+          <div style="margin-bottom:10px; padding:8px; border-radius:8px; background:#fee2e2; color:#b91c1c; font-size:13px;">
+            <strong>Revisa los siguientes errores:</strong>
+            <ul style="margin:6px 0 0 18px;">
+              {% for field in doc_form %}
+                {% for error in field.errors %}
+                  <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                {% endfor %}
+              {% endfor %}
+              {% for error in doc_form.non_field_errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+    
+        <div class="nf-grid-2">
+    
+          <!-- ====== IZQUIERDA: DATOS DOCUMENTO (OBLIGATORIOS + OPCIONALES) ====== -->
+          <div class="nf-card">
+            <h4><i class="fas fa-file-lines"></i> Datos del documento</h4>
+
+            <div style="display:grid;gap:8px;">
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>N° documento *</label>
+                {{ doc_form.docum_num }}
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Tipo documento *</label>
+                {{ doc_form.tipo_doc }}
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Cliente / Empresa *</label>
+                {{ doc_form.empresa }}
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Proyecto *</label>
+                {{ doc_form.proyecto }}
+              </div>
+
+              <!-- OBLIGATORIO: Tipo transacción (NO pertenece al form del modelo) -->
+              <div>
+                <label>Tipo transacción *</label>
+                <select class="form-control" name="tipo_trans" required>
+                  {% for t in tipos_trans %}
+                    <option value="{{ t.tipo_id }}">{{ t.tipo_trans }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Estado documento *</label>
+                {{ doc_form.docum_estado }}
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Fecha emisión *</label>
+                {{ doc_form.docum_fecha_emi }}
+              </div>
+
+              <!-- OBLIGATORIO -->
+              <div>
+                <label>Fecha vencimiento *</label>
+                {{ doc_form.docum_fecha_ven }}
+              </div>
+
+              <!-- OPCIONAL -->
+              <div>
+                <label>Fecha reclamo (opcional)</label>
+                {{ doc_form.docum_fecha_recl }}
+              </div>
+
+              <!-- OPCIONAL -->
+              <div>
+                <label>Observaciones (opcional)</label>
+                {{ doc_form.docum_obs }}
+              </div>
+            </div>
+          </div>
+
+          <!-- ====== DERECHA: PAGO + DETALLE ====== -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+
+            <!-- FORMA DE PAGO -->
+            <div class="nf-card">
+              <h4><i class="fas fa-credit-card"></i> Forma de pago</h4>
+
+              <div class="nf-grid-2" style="grid-template-columns:1.1fr 0.9fr;">
+                <div>
+                  <label>Tipo de pago *</label>
+                  <select class="form-control" name="tipo_pago" required>
+                    {% for tp in tipos_pago %}
+                      <option value="{{ tp.tpago_id }}">{{ tp.tpago_tipo }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Días de pago *</label>
+                  <input type="number" class="form-control" name="fpago_dias" min="0" placeholder="Ej: 30" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- DETALLE DOCUMENTO -->
+            <div class="nf-card">
+              <h4><i class="fas fa-list"></i> Detalle del documento</h4>
+
+              <!-- Controles para seleccionar producto, cantidad y observación -->
+              <div class="nf-grid-2" style="margin-bottom:8px;align-items:flex-end;">
+                <div>
+                  <label>Producto / Servicio *</label>
+                  <select id="det_producto" class="form-control" required>
+                    <option value="">-- Seleccionar --</option>
+                    {% for p in productos %}
+                      <option value="{{ p.produ_id }}"
+                              data-precio="{{ p.produ_bruto }}"
+                              data-nombre="{{ p.produ_nom }}">
+                          {{ p.produ_nom }} — ${{ p.produ_bruto|floatformat:0|intcomma }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label>Cantidad *</label>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <button type="button" class="nf-btn nf-btn-ghost" onclick="cambiarCantidad(-1)">
+                      <i class="fas fa-minus"></i>
+                    </button>
+                    <input type="number" id="det_cant" class="form-control" value="1" min="1"
+                           style="max-width:80px;text-align:center;">
+                    <button type="button" class="nf-btn nf-btn-ghost" onclick="cambiarCantidad(1)">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div style="grid-column:1/3;">
+                  <label>Observación (opcional)</label>
+                  <input type="text" id="det_obs" class="form-control" placeholder="Opcional: notas del producto">
+                </div>
+              </div>
+
+              <!-- Botón para agregar ítem al detalle -->
+              <div class="nf-btn-group" style="justify-content:flex-start; margin-top:4px;">
+                  <button type="button"
+                          class="nf-btn nf-btn-primary"
+                          onclick="agregarProducto()">
+                      <i class="fas fa-plus"></i>
+                      Agregar al detalle
+                  </button>
+              </div>
+
+              <!-- TABLA DEL DETALLE -->
+              <table class="nf-detalle-table" style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th style="width:70px;">Cant</th>
+                    <th style="width:90px;">P.U.</th>
+                    <th style="width:100px;">Total</th>
+                    <th style="width:60px;">Quitar</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaDetalle"></tbody>
+              </table>
+
+              <!-- Totales del detalle -->
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <span class="text-muted" style="font-size:11px;">
+                  Debes agregar al menos un producto/servicio.
+                </span>
+                <div>
+                  <span class="pill-total">Neto: $<span id="total_neto_span">0</span></span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#eff6ff;color:#1d4ed8;">
+                    IVA (19%): $<span id="iva_span">0</span>
+                  </span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#fef9c3;color:#854d0e;">
+                    Total: $<span id="total_span">0</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Campo oculto donde se guardará el JSON del detalle -->
+              <input type="hidden" name="detalle_json" id="input_detalle_json">
+
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTONES FINALES DE ACCIÓN -->
+        <div class="nf-btn-group" style="margin-top:14px;">
+          <button type="button" class="nf-btn nf-btn-secondary" onclick="cerrarModal('modalDocumento')">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+
+          <button type="submit" class="nf-btn nf-btn-primary">
+            <i class="fas fa-save"></i> Guardar documento + detalle
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div> 
+
+<!-- ========================================================= -->
+<!-- ================== MODAL EDITAR DOCUMENTO =============== -->
+<!-- ========================================================= -->
+
+<div id="modalEditarDocumento" class="modal" aria-hidden="true">
+  <div class="modal-content">
+
+    <div class="modal-header">
+      <h3>
+        <i class="fas fa-edit"></i>
+        Editar documento Nº <span id="edit_doc_num"></span>
+        <span class="step-chip"><i class="fas fa-pen"></i> Modificar Datos + Detalle</span>
+      </h3>
+      <button class="close-modal" onclick="cerrarModal('modalEditarDocumento')">&times;</button>
+    </div>
+
+    <div class="nf-container">
+
+      <form method="post" id="formEditarDocumento" onsubmit="prepararDetalleJSONEditar()">
+        {% csrf_token %}
+
+        <input type="hidden" id="edit_doc_id" name="doc_id">
+
+        <div class="nf-grid-2">
+
+          <!-- LEFT -->
+          <div class="nf-card">
+            <h4><i class="fas fa-file-lines"></i> Datos del documento</h4>
+
+            <div style="display:grid;gap:8px;">
+
+              <div>
+                <label>N° documento</label>
+                <input type="number" id="edit_docum_num" name="docum_num"
+                       class="form-control" readonly>
+              </div>
+
+              <div>
+                <label>Tipo documento</label>
+                <select id="edit_tipo_doc" name="tipo_doc" class="form-control">
+                  {% for td in doc_form.fields.tipo_doc.queryset %}
+                    <option value="{{ td.tidoc_id }}">{{ td.tidoc_tipo }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label>Cliente / Empresa</label>
+                <select id="edit_empresa" name="empresa" class="form-control">
+                  {% for e in doc_form.fields.empresa.queryset %}
+                    <option value="{{ e.emppe_id }}">{{ e.emppe_nom }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label>Proyecto</label>
+                <select id="edit_proyecto" name="proyecto" class="form-control">
+                  {% for p in doc_form.fields.proyecto.queryset %}
+                    <option value="{{ p.proye_idt }}">{{ p.proye_desc }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label>Estado</label>
+                <select id="edit_estado" name="docum_estado" class="form-control">
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="MITAD">Mitad</option>
+                  <option value="PAGADO">Pagado</option>
+                  <option value="ATRASADO">Atrasado</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Fecha emisión</label>
+                <input type="date" id="edit_fecha_emi" name="docum_fecha_emi" class="form-control">
+              </div>
+
+              <div>
+                <label>Fecha vencimiento</label>
+                <input type="date" id="edit_fecha_ven" name="docum_fecha_ven" class="form-control">
+              </div>
+
+              <div>
+                <label>Fecha reclamo</label>
+                <input type="date" id="edit_fecha_recl" name="docum_fecha_recl" class="form-control">
+              </div>
+
+              <div>
+                <label>Observaciones</label>
+                <textarea id="edit_obs" name="docum_obs" class="form-control"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+
+            <!-- FORMA DE PAGO -->
+            <div class="nf-card">
+              <h4><i class="fas fa-credit-card"></i> Forma de pago</h4>
+
+              <div class="nf-grid-2" style="grid-template-columns:1.1fr 0.9fr;">
+                <div>
+                  <label>Tipo de pago</label>
+                  <select id="edit_tipo_pago" name="tipo_pago" class="form-control">
+                    {% for tp in tipos_pago %}
+                      <option value="{{ tp.tpago_id }}">{{ tp.tpago_tipo }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Días de pago</label>
+                  <input type="number" id="edit_fpago_dias" name="fpago_dias" class="form-control">
+                </div>
+              </div>
+            </div>
+
+            <!-- DETALLE -->
+            <div class="nf-card">
+              <h4><i class="fas fa-list"></i> Detalle del documento</h4>
+
+              <!-- Controls -->
+              <div class="nf-grid-2" style="margin-bottom:8px;align-items:flex-end;">
+
+                <div>
+                  <label>Producto / Servicio</label>
+                  <select id="edit_det_producto" class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    {% for p in productos %}
+                      <option value="{{ p.produ_id }}"
+                              data-precio="{{ p.produ_bruto }}"
+                              data-nombre="{{ p.produ_nom }}">
+                        {{ p.produ_nom }} — ${{ p.produ_bruto|floatformat:0|intcomma }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div>
+                  <label>Cantidad</label>
+
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <button type="button" class="nf-btn nf-btn-ghost"
+                            onclick="editarCambiarCantidad(-1)">
+                      <i class="fas fa-minus"></i>
+                    </button>
+
+                    <input type="number" id="edit_det_cant"
+                           class="form-control"
+                           value="1" min="1"
+                           style="max-width:80px;text-align:center;">
+
+                    <button type="button" class="nf-btn nf-btn-ghost"
+                            onclick="editarCambiarCantidad(1)">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div style="grid-column:1/3;">
+                  <label>Observación (opcional)</label>
+                  <input type="text" id="edit_det_obs" class="form-control"
+                         placeholder="Opcional: notas del producto">
+                </div>
+              </div>
+
+              <!-- Botón agregar -->
+              <div class="nf-btn-group" style="justify-content:flex-start;margin-top:4px;">
+                <button type="button" class="nf-btn nf-btn-primary" onclick="editarAgregarProducto()">
+                  <i class="fas fa-plus"></i> Agregar al detalle
+                </button>
+              </div>
+
+              <!-- Tabla -->
+              <table class="nf-detalle-table" style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th style="width:70px;">Cant</th>
+                    <th style="width:90px;">P.U.</th>
+                    <th style="width:100px;">Total</th>
+                    <th style="width:60px;">Quitar</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaDetalleEditar"></tbody>
+              </table>
+
+              <!-- Totales -->
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+
+                <span class="text-muted" style="font-size:11px;">
+                  Puedes modificar cantidades, precios y productos.
+                </span>
+
+                <div>
+                  <span class="pill-total">Neto: $<span id="edit_total_neto">0</span></span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#eff6ff;color:#1d4ed8;">
+                    IVA (19%): $<span id="edit_total_iva">0</span>
+                  </span>
+                  &nbsp;
+                  <span class="pill-total" style="background:#fef9c3;color:#854d0e;">
+                    Total: $<span id="edit_total_final">0</span>
+                  </span>
+                </div>
+              </div>
+
+              <input type="hidden" id="edit_detalle_json" name="detalle_json">
+
+            </div>
+          </div>
+        </div>
+
+        <div class="nf-btn-group" style="margin-top:14px;">
+          <button type="button" class="nf-btn nf-btn-secondary"
+                  onclick="cerrarModal('modalEditarDocumento')">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+
+          <button type="submit" class="nf-btn nf-btn-primary">
+            <i class="fas fa-save"></i> Guardar cambios
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ================== MODAL VER DOCUMENTO ================== -->
+<!-- ========================================================= -->
+
+<div id="modalVerDocumento" class="modal">
+  <div class="modal-content elegant-view">
+
+    <div class="modal-header view-header">
+      <h3>
+        <i class="fas fa-eye"></i>
+        Documento Nº <span id="ver_doc_num"></span>
+      </h3>
+      <button class="close-modal" onclick="cerrarModal('modalVerDocumento')">&times;</button>
+    </div>
+
+    <div class="nf-container">
+
+      <!-- DATOS PRINCIPALES -->
+      <div class="view-block">
+        <h4><i class="fas fa-file-alt"></i> Información del Documento</h4>
+
+        <div class="view-grid">
+          <div class="view-field"><strong>Tipo:</strong> <span id="ver_tipo_doc"></span></div>
+          <div class="view-field"><strong>Estado:</strong> <span id="ver_estado"></span></div>
+
+          <div class="view-field"><strong>Cliente:</strong> <span id="ver_empresa"></span></div>
+          <div class="view-field"><strong>Proyecto:</strong> <span id="ver_proyecto"></span></div>
+
+          <div class="view-field"><strong>Emisión:</strong> <span id="ver_fecha_emi"></span></div>
+          <div class="view-field"><strong>Vencimiento:</strong> <span id="ver_fecha_ven"></span></div>
+
+          <div class="view-field"><strong>Reclamo:</strong> <span id="ver_fecha_recl"></span></div>
+
+          <div class="view-field full">
+            <strong>Observación:</strong>
+            <span id="ver_obs"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORMA DE PAGO -->
+      <div class="view-block">
+        <h4><i class="fas fa-credit-card"></i> Forma de Pago</h4>
+
+        <div class="view-grid">
+          <div class="view-field"><strong>Tipo:</strong> <span id="ver_tipo_pago"></span></div>
+          <div class="view-field"><strong>Días:</strong> <span id="ver_fpago_dias"></span></div>
+        </div>
+      </div>
+
+      <!-- DETALLE -->
+      <div class="view-block">
+        <h4><i class="fas fa-list"></i> Detalle del Documento</h4>
+
+        <table class="nf-detalle-table view-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Cant</th>
+              <th>P.U.</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="ver_tabla_detalle"></tbody>
+        </table>
+
+        <div class="totales-box">
+          <div class="pill pill-neto">Neto: $<span id="ver_total_neto">0</span></div>
+          <div class="pill pill-iva">IVA: $<span id="ver_total_iva">0</span></div>
+          <div class="pill pill-total">Total: $<span id="ver_total_final">0</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ============= MODAL CONFIRMAR ELIMINACIÓN =============== -->
+<!-- ========================================================= -->
+
+<div id="confirmDeleteModal" class="modal" aria-hidden="true">
+  <div class="modal-content" style="max-width:400px;text-align:center;">
+
+    <h3><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i> Confirmar eliminación</h3>
+
+    <p id="deleteMessage" style="margin-top:10px;font-size:0.95rem;">
+      ¿Deseas eliminar este documento? Esta acción no se puede deshacer.
+    </p>
+
+    <div style="margin-top:18px;display:flex;justify-content:center;gap:10px;">
+      <button id="btnCancelDelete" class="nf-btn nf-btn-secondary" type="button">
+        Cancelar
+      </button>
+
+      <button id="btnConfirmDelete" class="nf-btn" style="background:#e74c3c;color:#fff;" type="button">
+        Eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- ========================================================= -->
+  <!-- ================== JAVASCRIPT ============================ -->
+  <!-- ========================================================= -->
+
+  <script>
+    // ==========================
+    // UTILIDADES PARA MODALES
+    // ==========================
+    function abrirModal(id){
+      const el = document.getElementById(id);
+      if (el) el.classList.add('show');
+    }
+
+    function cerrarModal(id){
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('show');
+    }
+
+    // ====== MANEJO DETALLE EN FRONT (CREAR) ======
+    let detalleLista = [];
+
+    function cambiarCantidad(delta){
+      const input = document.getElementById("det_cant");
+      let val = parseInt(input.value || "1", 10) + delta;
+      if (val < 1) val = 1;
+      input.value = val;
+    }
+
+    function agregarProducto(){
+      const select = document.getElementById("det_producto");
+      const cant = parseInt(document.getElementById("det_cant").value || "1", 10);
+      const obs = document.getElementById("det_obs").value.trim();
+
+      const id = select.value;
+      if (!id){
+        alert("Seleccione un producto.");
+        return;
+      }
+      const opt = select.options[select.selectedIndex];
+      const nombre = opt.dataset.nombre; 
+      const precio = parseInt(opt.dataset.precio || "0", 10);
+
+      const total = precio * cant;
+
+      // Agrega un nuevo ítem (permite productos distintos en el mismo doc)
+      detalleLista.push({
+        id: id,
+        nombre: nombre,
+        cant: cant,
+        precio: precio,
+        total: total,
+        obs: obs
+      });
+
+      // Limpia campos para el próximo ítem
+      document.getElementById("det_cant").value = 1;
+      document.getElementById("det_obs").value = "";
+
+      renderDetalle();
+    }
+
+    function quitarItem(index){
+      detalleLista.splice(index, 1);
+      renderDetalle();
+    }
+
+    function renderDetalle(){
+      const tbody = document.getElementById("tablaDetalle");
+      tbody.innerHTML = "";
+
+      let sumaBruta = 0;
+
+      detalleLista.forEach((item, idx) => {
+        sumaBruta += item.total;
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${item.nombre}${item.obs ? `<br><small style="color:#6b7280;">${item.obs}</small>` : ""}</td>
+            <td>${item.cant}</td>
+            <td>$${item.precio.toLocaleString("es-CL")}</td>
+            <td>$${item.total.toLocaleString("es-CL")}</td>
+            <td style="text-align:center;">
+              <button type="button" class="nf-btn nf-btn-ghost"
+                      onclick="quitarItem(${idx})"
+                      style="padding:4px 8px;font-size:12px;">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      // ==========================
+      // CÁLCULOS CONTABLES
+      // sumaBruta la tratamos como TOTAL BRUTO
+      // NETO = BRUTO / 1.19
+      // IVA  = BRUTO - NETO
+      // ==========================
+      const neto = Math.round(sumaBruta / 1.19);
+      const iva  = Math.round(sumaBruta - neto);
+      const total = sumaBruta;
+
+      document.getElementById("total_neto_span").innerText  = neto.toLocaleString("es-CL");
+      document.getElementById("iva_span").innerText         = iva.toLocaleString("es-CL");
+      document.getElementById("total_span").innerText       = total.toLocaleString("es-CL");
+    }
+
+    // Convierte el arreglo detalleLista en JSON y lo pasa al campo oculto
+    function prepararDetalleJSON(){
+      const hidden = document.getElementById("input_detalle_json");
+      hidden.value = JSON.stringify(detalleLista);
+    }
+
+    // Si hubo errores en el POST (validados desde la vista), reabrimos el modal
+    {% if errores %}
+      abrirModal('modalDocumento');
+    {% endif %}
+
+    // ======================================================
+    // MODAL DE CONFIRMACIÓN DE ELIMINACIÓN
+    // ======================================================
+    function abrirDeleteModal(url) {
+      const modal = document.getElementById("confirmDeleteModal");
+      const deleteForm = document.getElementById("deleteForm");
+
+      deleteForm.action = url;   // redirige al URL correcto del documento
+      modal.classList.add("show");
+    }
+
+    function cerrarDeleteModal() {
+      document.getElementById("confirmDeleteModal").classList.remove("show");
+    }
+
+    const confirmModal     = document.getElementById('confirmDeleteModal');
+    const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+    const btnCancelDelete  = document.getElementById('btnCancelDelete');
+    const deleteMessageEl  = document.getElementById('deleteMessage');
+
+    let formPendiente = null;
+
+    // Reemplaza el confirm() nativo con un modal bonito
+    function confirmarEliminar(ev, formEl){
+      ev.preventDefault();
+      formPendiente = formEl;
+
+      // Obtener número del documento desde la fila
+      const tr = formEl.closest('tr');
+      const numero = tr ? tr.querySelector('td:nth-child(1)')?.textContent?.trim() : '';
+
+      deleteMessageEl.textContent = numero
+        ? `¿Deseas eliminar el documento N° ${numero}? Se eliminarán también sus detalles y transacciones.`
+        : '¿Deseas eliminar este documento? Se eliminarán también sus detalles.';
+
+      abrirModal('confirmDeleteModal');
+      return false;
+    }
+
+    btnConfirmDelete.addEventListener('click', () => {
+      if (formPendiente) {
+          const f = formPendiente;
+          formPendiente = null;
+          cerrarModal('confirmDeleteModal');
+          f.submit();
+      }
+    });
+
+    btnCancelDelete.addEventListener('click', () => {
+      formPendiente = null;
+      cerrarModal('confirmDeleteModal');
+    });
+
+    // Cerrar al hacer clic fuera del contenido
+    confirmModal.addEventListener('click', (e) => {
+      if (e.target === confirmModal) {
+          cerrarModal('confirmDeleteModal');
+          formPendiente = null;
+      }
+    });
+
+    // Cerrar con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && confirmModal.classList.contains('show')) {
+          cerrarModal('confirmDeleteModal');
+          formPendiente = null;
+      }
+    });
+
+    // ================================================
+    // ABRIR MODAL EDITAR Y CARGAR DATOS DESDE EL BACK
+    // ================================================
+    function abrirModalEditar(docId) {
+
+      fetch(`/facturacion/api/documento/${docId}/`)
+          .then(r => r.json())
+          .then(data => {
+
+              // Actualizamos action del form de edición
+              document.getElementById("formEditarDocumento").action =
+                  `/facturacion/editar/${docId}/`;
+
+              // ===========================
+              // CAMPOS DOCUMENTO
+              // ===========================
+              document.getElementById("edit_doc_id").value = data.docum_num;
+              document.getElementById("edit_doc_num").textContent = data.docum_num;
+
+              document.getElementById("edit_docum_num").value = data.docum_num;
+
+              document.getElementById("edit_tipo_doc").value = data.tipo_doc;
+              document.getElementById("edit_empresa").value  = data.empresa;
+              document.getElementById("edit_proyecto").value = data.proyecto ?? "";
+
+              document.getElementById("edit_estado").value = data.docum_estado;
+
+              document.getElementById("edit_fecha_emi").value  = data.docum_fecha_emi;
+              document.getElementById("edit_fecha_ven").value  = data.docum_fecha_ven || "";
+              document.getElementById("edit_fecha_recl").value = data.docum_fecha_recl || "";
+
+              document.getElementById("edit_obs").value = data.docum_obs || "";
+
+              // ===========================
+              // FORMA DE PAGO
+              // ===========================
+              document.getElementById("edit_tipo_pago").value  = data.tipo_pago;
+              document.getElementById("edit_fpago_dias").value = data.fpago_dias;
+
+              // ===========================
+              // DETALLE
+              // ===========================
+              detalleEditar = Array.isArray(data.detalle) ? data.detalle : [];
+              renderDetalleEditar();
+
+              abrirModal("modalEditarDocumento");
+          })
+          .catch(err => {
+              console.error("ERROR API:", err);
+              alert("Error cargando los datos del documento.");
+          });
+    }
+
+    // ====================================================
+    // CANTIDAD: BOTONES + / – PARA EL MODAL EDITAR
+    // ====================================================
+    function editarCambiarCantidad(delta) {
+      const input = document.getElementById("edit_det_cant");
+      let val = parseInt(input.value || "1", 10) + delta;
+      if (val < 1) val = 1;
+      input.value = val;
+    }
+
+    // ====================================================
+    // TABLA DE DETALLE EN MODO EDICIÓN
+    // ====================================================
+    let detalleEditar = [];
+
+    function editarAgregarProducto() {
+
+      const select = document.getElementById("edit_det_producto");
+      const id = select.value;
+
+      if (!id) {
+          alert("Seleccione un producto.");
+          return;
+      }
+
+      const opt = select.options[select.selectedIndex];
+      const nombre = opt.dataset.nombre;
+      const precio = parseInt(opt.dataset.precio || "0", 10);
+
+      const cant = Math.max(
+          1,
+          parseInt(document.getElementById("edit_det_cant").value || "1", 10)
+      );
+
+      const obs = document.getElementById("edit_det_obs").value.trim();
+
+      detalleEditar.push({
+          id,
+          nombre,
+          precio,
+          cant,
+          total: cant * precio,
+          obs
+      });
+
+      // Reset campos
+      document.getElementById("edit_det_cant").value = 1;
+      document.getElementById("edit_det_obs").value = "";
+
+      renderDetalleEditar();
+    }
+
+    function quitarEditar(index) {
+      detalleEditar.splice(index, 1);
+      renderDetalleEditar();
+    }
+
+    function renderDetalleEditar() {
+      const tbody = document.getElementById("tablaDetalleEditar");
+      tbody.innerHTML = "";
+
+      let neto = 0;
+
+      detalleEditar.forEach((item, idx) => {
+
+          neto += item.total;
+
+          tbody.innerHTML += `
+              <tr>
+                  <td>
+                      ${item.nombre}
+                      ${item.obs ? `<br><small style="color:#6b7280;">${item.obs}</small>` : ""}
+                  </td>
+                  <td>${item.cant}</td>
+                  <td>$${item.precio.toLocaleString("es-CL")}</td>
+                  <td>$${item.total.toLocaleString("es-CL")}</td>
+                  <td style="text-align:center;">
+                      <button onclick="quitarEditar(${idx})"
+                              class="nf-btn nf-btn-ghost"
+                              style="padding:4px 8px;">
+                          <i class="fas fa-trash"></i>
+                      </button>
+                  </td>
+              </tr>
+          `;
+      });
+
+      // TOTALES
+      const iva   = Math.round(neto * 0.19);
+      const total = neto + iva;
+
+      document.getElementById("edit_total_neto").innerText  = neto.toLocaleString("es-CL");
+      document.getElementById("edit_total_iva").innerText   = iva.toLocaleString("es-CL");
+      document.getElementById("edit_total_final").innerText = total.toLocaleString("es-CL");
+
+      // Enviar JSON al POST
+      document.getElementById("edit_detalle_json").value = JSON.stringify(detalleEditar);
+    }
+
+    // Ejecutado antes del POST como respaldo extra
+    function prepararDetalleJSONEditar() {
+      document.getElementById("edit_detalle_json").value = JSON.stringify(detalleEditar);
+    }
+
+    // ================================================
+    // ABRIR MODAL VER DOCUMENTO
+    // ================================================
+    function abrirModalVer(docId) {
+
+      fetch(`/facturacion/api/documento/${docId}/`)
+          .then(r => r.json())
+          .then(data => {
+
+              // Encabezado
+              document.getElementById("ver_doc_num").innerText = data.docum_num;
+
+              // Datos generales
+              document.getElementById("ver_tipo_doc").innerText = data.tipo_doc_nombre;
+              document.getElementById("ver_estado").innerText = data.docum_estado;
+
+              document.getElementById("ver_empresa").innerText = data.empresa_nombre;
+              document.getElementById("ver_proyecto").innerText = data.proyecto_nombre || "-";
+
+              document.getElementById("ver_fecha_emi").innerText = data.docum_fecha_emi;
+              document.getElementById("ver_fecha_ven").innerText = data.docum_fecha_ven || "-";
+              document.getElementById("ver_fecha_recl").innerText = data.docum_fecha_recl || "-";
+
+              document.getElementById("ver_obs").innerText =
+                  data.docum_obs && data.docum_obs.trim() !== "" ? data.docum_obs : "-";
+
+              // Forma de pago
+              document.getElementById("ver_tipo_pago").innerText = data.tipo_pago_nombre;
+              document.getElementById("ver_fpago_dias").innerText = data.fpago_dias;
+
+              // ============================
+              // DETALLE TABLA
+              // ============================
+              const tbody = document.getElementById("ver_tabla_detalle");
+              tbody.innerHTML = "";
+
+              let bruto_total = 0;
+
+              data.detalle.forEach(item => {
+                  // total = BRUTO
+                  bruto_total += item.total;
+
+                  tbody.innerHTML += `
+                      <tr>
+                          <td>${item.nombre}</td>
+                          <td style="text-align:center;">${item.cant}</td>
+                          <td style="text-align:right;">$${item.precio.toLocaleString("es-CL")}</td>
+                          <td style="text-align:right;">$${item.total.toLocaleString("es-CL")}</td>
+                      </tr>
+                  `;
+              });
+
+              // NETO = BRUTO / 1.19
+              const neto = Math.round(bruto_total / 1.19);
+              // IVA = BRUTO - NETO
+              const iva = bruto_total - neto;
+              // TOTAL = BRUTO
+              const total = bruto_total;
+
+              document.getElementById("ver_total_neto").innerText  = neto.toLocaleString("es-CL");
+              document.getElementById("ver_total_iva").innerText   = iva.toLocaleString("es-CL");
+              document.getElementById("ver_total_final").innerText = total.toLocaleString("es-CL");
+
+              abrirModal("modalVerDocumento");
+
+          });
+    }
+
+    // Descarga Excel de un solo documento desde el modal de ver
+    function descargarExcelDocumento() {
+      // Obtener ID limpiando espacios/saltos
+      const docId = document.getElementById("ver_doc_num").textContent.trim();
+
+      if (!docId || isNaN(docId)) {
+          alert("No se pudo obtener el número del documento.");
+          return;
+      }
+
+      window.location.href = `/facturacion/export/excel/${docId}/`;
+    }
+
+  </script>
+</body>
+</html>

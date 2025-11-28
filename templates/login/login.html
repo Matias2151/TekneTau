@@ -1,0 +1,67 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-R">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - TEKNETAU</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'public-style.css' %}">
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap">
+</head>
+<body class="public-page">
+
+    <div class="login-card">
+        <div class="login-header">
+            <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="login-logo">
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="usuario">Usuario</label>
+                <input type="text" id="usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" required>
+            </div>
+            
+            <p id="error-message" style="color: var(--danger-color); text-align: center; font-size: 0.9rem;"></p>
+
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-sign-in-alt"></i> Ingresar
+            </button>
+
+            <a href="{% url 'index' %}" class="back-link">Volver al inicio</a>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const usuarioInput = document.getElementById('usuario').value;
+            const passwordInput = document.getElementById('password').value;
+            const errorMessage = document.getElementById('error-message');
+
+            const USUARIO_VALIDO = "administrador";
+            const PASS_VALIDA = "admin123"; 
+
+            if (usuarioInput === USUARIO_VALIDO && passwordInput === PASS_VALIDA) {
+                
+                // --- ¡NUEVA LÍNEA AQUÍ! ---
+                // Guardamos el nombre del usuario en la memoria de la sesión
+                sessionStorage.setItem('loggedInUser', usuarioInput);
+                
+                // Redirigimos al dashboard
+                window.location.href = '{% url 'dashboard' %}';
+            } else {
+                errorMessage.textContent = 'Usuario o contraseña incorrectos.';
+            }
+        });
+    </script>
+
+</body>
+</html>
