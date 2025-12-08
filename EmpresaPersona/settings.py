@@ -89,7 +89,7 @@ DATABASES = {
         'NAME': 'testdb',
         'USER': 'root',
         'PASSWORD': '',
-        'HOST': 'teknetau.pythonanywhere.com',
+        'HOST': 'teknetau.mysql.pythonanywhere-services.com',
         'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',             
@@ -165,3 +165,4 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Dirección que aparecerá como remitente en el correo impreso en consola
 DEFAULT_FROM_EMAIL = "no-reply@teknetau.cl"
+
