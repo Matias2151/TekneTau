@@ -161,7 +161,13 @@ USE_L10N = True
 #  CONFIGURACIÓN DE CORREO PARA DJANGO
 #  MODO DESARROLLO (NO ENVÍA CORREOS REALES)
 # ==========================================
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.office365.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "paswordteknetau@hotmail.com"   # tu correo Hotmail real
+EMAIL_HOST_PASSWORD = "teknetauproyecto123"        # tu contraseña real del correo
 
 # Dirección que aparecerá como remitente en el correo impreso en consola
 DEFAULT_FROM_EMAIL = "no-reply@teknetau.cl"
