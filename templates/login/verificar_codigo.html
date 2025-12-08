@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar código - TEKNETAU</title>
+
+    <link rel="stylesheet" href="{% static 'public-style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap">
+</head>
+
+<body class="public-page">
+
+    <div class="login-card">
+        <div class="login-header">
+            <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="login-logo">
+            <h2 style="margin-top: 10px; font-weight: bold;">Restablecer contraseña</h2>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="id_usuario">Usuario</label>
+                {{ form.usuario }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_codigo">Código recibido</label>
+                {{ form.codigo }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_nueva_password">Nueva contraseña</label>
+                {{ form.nueva_password }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_confirmar_password">Confirmar contraseña</label>
+                {{ form.confirmar_password }}
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <p style="color: {% if message.tags == 'error' %}red{% else %}green{% endif %};
+                              text-align:center; font-size:0.9rem; margin-bottom:10px;">
+                        {{ message }}
+                    </p>
+                {% endfor %}
+            {% endif %}
+
+            {% if form.errors %}
+                <p style="color:red; text-align:center; font-size:0.9rem; margin-bottom:10px;">
+                    Revisa los datos ingresados.
+                </p>
+            {% endif %}
+
+            <button type="submit" class="btn-submit" style="margin-top: 10px;">
+                <i class="fas fa-key"></i> Cambiar contraseña
+            </button>
+
+            <div style="text-align:center; margin-top:15px;">
+                <a href="{% url 'login' %}" class="back-link">Volver al inicio de sesión</a>
+            </div>
+        </form>
+    </div>
+
+</body>
+</html>
