@@ -1,0 +1,427 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrar usuarios</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+
+<style>
+/* ============================================================
+      ESTILOS ESPECÍFICOS PARA MEJORAR LA TABLA
+   ============================================================ */
+
+/* Separación entre filas (líneas invisibles) */
+.table {
+    border-collapse: separate !important;
+    border-spacing: 0 10px !important;
+}
+
+/* Cabecera de la tabla */
+.table thead th {
+    background: #f4f4f4;
+    padding: 14px 18px !important;
+    font-weight: bold;
+}
+
+/* Filas con estilo de tarjeta */
+.table tbody tr {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+
+/* Celdas más separadas y ordenadas */
+.table tbody td {
+    padding: 14px 18px !important;
+    vertical-align: middle;
+}
+
+/* Bordes redondeados por fila */
+.table tbody tr td:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+.table tbody tr td:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* Botones de acción */
+.btn-green {
+    background-color: #27ae60;
+    color: white;
+}
+.btn-green:hover {
+    background-color: #1e8449;
+}
+
+.btn-yellow {
+    background-color: #f1c40f;
+    color: white;
+}
+.btn-yellow:hover {
+    background-color: #d4ac0d;
+}
+
+.btn-red {
+    background-color: #e74c3c;
+    color: white;
+}
+.btn-red:hover {
+    background-color: #c0392b;
+}
+
+/* Contenedor de botones de acción en fila */
+.acciones-usuario {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    white-space: nowrap;
+}
+.acciones-usuario form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ───────── Botón “Nuevo Usuario” y formulario desplegable ───────── */
+.btn-nuevo {
+    background-color: #3498db;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+.btn-nuevo:hover { background-color: #2980b9; }
+
+.nuevo-usuario-form {
+    display: none;                 /* 🔹 Arranca oculto */
+    margin-top: 15px;
+    background: white;
+    padding: 18px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+/* Grid del formulario de creación */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+/* Buscador */
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+.search-box input {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- =====================================================
+                    SIDEBAR
+===================================================== -->
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <img src="{% static 'logo.png' %}" alt="Logo TEKNETAU" class="sidebar-logo">
+    </div>
+
+    <ul class="sidebar-nav">
+        <li><a href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> Panel de Control</a></li>
+        <li><a href="{% url 'empresa_clientes' %}"><i class="fas fa-users"></i> Empresa / Persona</a></li>
+        <li><a href="{% url 'productoyservicioapp:lista_productos' %}"><i class="fas fa-box-open"></i> Productos / Servicios</a></li>
+        <li><a href="{% url 'proyectoapp:lista_proyectos' %}"><i class="fas fa-briefcase"></i> Proyectos</a></li>
+        <li><a href="{% url 'facturacionapp:lista_documentos' %}"><i class="fas fa-file-invoice-dollar"></i> Facturación</a></li>
+
+        <li class="active">
+            <a href="{% url 'usuariosapp:usuarios_admin' %}">
+                <i class="fas fa-user-shield"></i> Usuarios
+            </a>
+        </li>
+    </ul>
+</aside>
+
+<!-- =====================================================
+                    CONTENIDO
+===================================================== -->
+<main class="main-content">
+
+    <!-- HEADER SUPERIOR -->
+    <header class="top-header">
+        <h1>Gestión de Usuarios</h1>
+        <div class="user-info">
+            <span>{{ request.session.username }} ({{ request.session.user_role }})</span>
+            <a href="{% url 'usuariosapp:logout' %}" class="btn btn-sm btn-outline">Cerrar sesión</a>
+        </div>
+    </header>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+    <div class="content-card" style="margin-bottom: 15px;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- =====================================================
+                BOTÓN + FORM NUEVO USUARIO (DESPLEGABLE)
+    ====================================================== -->
+    <div class="content-card" style="margin-bottom: 20px;">
+
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h2><i class="fas fa-users-cog"></i> Gestión de usuarios</h2>
+
+            <!-- 🔹 Botón que abre/cierra el formulario -->
+            <button class="btn-nuevo" id="btnNuevoUsuario">
+                <i class="fas fa-user-plus"></i> Nuevo Usuario
+            </button>
+        </div>
+
+        <!-- 🔹 Formulario oculto que se despliega -->
+        <div id="formNuevoUsuario" class="nuevo-usuario-form">
+            <h3>Crear nuevo usuario</h3>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="crear">
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label for="id_username">Usuario</label>
+                        {{ form_creacion.username }}
+                        {% if form_creacion.username.errors %}
+                            {% for error in form_creacion.username.errors %}
+                                <div style="color:#e74c3c; font-size:0.85rem;">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                
+                    <div class="form-group">
+                        <label for="id_email">Correo electrónico</label>
+                        {{ form_creacion.email }}
+                        {% if form_creacion.email.errors %}
+                            {% for error in form_creacion.email.errors %}
+                                <div style="color:#e74c3c; font-size:0.85rem;">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                
+                    <div class="form-group">
+                        <label for="id_password">Contraseña</label>
+                        {{ form_creacion.password }}
+                        {% if form_creacion.password.errors %}
+                            {% for error in form_creacion.password.errors %}
+                                <div style="color:#e74c3c; font-size:0.85rem;">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                
+                    <div class="form-group">
+                        <label for="id_role">Rol</label>
+                        {{ form_creacion.role }}
+                        {% if form_creacion.role.errors %}
+                            {% for error in form_creacion.role.errors %}
+                                <div style="color:#e74c3c; font-size:0.85rem;">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                
+                    <div class="form-group">
+                        <label for="id_is_active">Activo</label>
+                        {{ form_creacion.is_active }}
+                        {% if form_creacion.is_active.errors %}
+                            {% for error in form_creacion.is_active.errors %}
+                                <div style="color:#e74c3c; font-size:0.85rem;">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                
+                </div>
+                
+
+                <button type="submit" class="btn btn-primary" style="margin-top:12px;">
+                    <i class="fas fa-save"></i> Crear usuario
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================
+                        TABLA DE USUARIOS
+    ====================================================== -->
+    <div class="content-card">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h2>Usuarios registrados</h2>
+
+            <!-- 🔍 Buscador -->
+            <div class="search-box">
+                <input type="text" id="buscar" placeholder="Buscar usuario…">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table" id="tablaUsuarios">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Rol</th>
+                        <th>Activo</th>
+                        <th>Contraseña</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>{{ usuario.username }}</td>
+
+                        <td>{{ usuario.email }}</td>
+
+                        <td>{{ usuario.get_role_display }}</td>
+
+                        <td>
+                            {% if usuario.is_active %}
+                                <span style="color:green; font-weight:bold;">Sí</span>
+                            {% else %}
+                                <span style="color:red; font-weight:bold;">No</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- VER / OCULTAR CONTRASEÑA -->
+                        <td>
+                            <span class="password-value" data-password="{{ usuario.password_visible }}">
+                                ********
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline toggle-password">
+                                Ver
+                            </button>
+                        </td>
+
+                        <!-- BOTONES DE ACCIÓN -->
+                        <td>
+                            <div class="acciones-usuario">
+
+                                <!-- ACTUALIZAR ROL + ACTIVO -->
+                                <form action="{% url 'usuariosapp:actualizar_rol' usuario.id %}" method="post">
+                                    {% csrf_token %}
+                                    <select name="role">
+                                        {% for value,label in usuario.ROLE_CHOICES %}
+                                            <option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <label>
+                                        <input type="checkbox" name="is_active" value="True" {% if usuario.is_active %}checked{% endif %}> Activo
+                                    </label>
+
+                                    <button class="btn btn-sm btn-green" title="Aplicar cambios">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </form>
+
+                                <!-- CAMBIAR CONTRASEÑA -->
+                                <form action="{% url 'usuariosapp:actualizar_password' usuario.id %}" method="post">
+                                    {% csrf_token %}
+                                    <input type="password" name="password" placeholder="Nueva" required style="width:90px;">
+                                    <input type="password" name="confirmar" placeholder="Repetir" required style="width:90px;">
+
+                                    <button class="btn btn-sm btn-yellow" title="Cambiar contraseña">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                </form>
+
+                                <!-- ELIMINAR -->
+                                <form action="{% url 'usuariosapp:eliminar_usuario' usuario.id %}" method="post"
+                                      onsubmit="return confirm('¿Deseas eliminar este usuario?');">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-red" 
+                                            {% if usuario.username == request.session.username %}
+                                                disabled title="No puedes eliminarte a ti mismo"
+                                            {% endif %}>
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align:center;">No hay usuarios registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- =====================================================
+        SCRIPTS
+===================================================== -->
+<script>
+// 🔐 Mostrar / ocultar contraseña visible
+document.querySelectorAll('.toggle-password').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const span = this.previousElementSibling;
+        if (span.textContent === "********") {
+            span.textContent = span.dataset.password;
+            this.textContent = "Ocultar";
+        } else {
+            span.textContent = "********";
+            this.textContent = "Ver";
+        }
+    });
+});
+
+// 🔽 Toggle formulario "Nuevo Usuario"
+const btnNuevo = document.getElementById("btnNuevoUsuario");
+if (btnNuevo) {
+    btnNuevo.addEventListener("click", () => {
+        const form = document.getElementById("formNuevoUsuario");
+        if (!form) return;
+        form.style.display = (form.style.display === "block") ? "none" : "block";
+    });
+}
+
+// 🔍 Buscador de usuarios por texto
+const buscarInput = document.getElementById("buscar");
+if (buscarInput) {
+    const filas = document.querySelectorAll("#tablaUsuarios tbody tr");
+    buscarInput.addEventListener("keyup", () => {
+        const filtro = buscarInput.value.toLowerCase();
+        filas.forEach(fila => {
+            fila.style.display = fila.textContent.toLowerCase().includes(filtro) ? "" : "none";
+        });
+    });
+}
+</script>
+
+</body>
+</html>
