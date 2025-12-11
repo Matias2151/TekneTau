@@ -164,10 +164,10 @@ def login_view(request):
 
     form = LoginForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        username = form.cleaned_data["usuario"]
+        username = form.cleaned_data["usuario"].strip()
         password = form.cleaned_data["password"]
 
-        usuario = UsuarioSistema.objects.filter(username=username).first()
+        usuario = UsuarioSistema.objects.filter(username_iexact=username).first()
 
         if usuario is None:
             messages.error(request, "Usuario o contraseña incorrectos.")
@@ -383,3 +383,4 @@ def obtener_personas_json(request):
         })
 
     return JsonResponse(data, safe=False)
+
